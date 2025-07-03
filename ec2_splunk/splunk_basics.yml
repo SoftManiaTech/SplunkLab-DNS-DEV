@@ -3,7 +3,7 @@
   tasks:
     - name: Pause for 120 seconds
       ansible.builtin.pause:
-        seconds: 120
+        seconds: 160
 
 - name: Set Hostname, Servername, Default-Hostname and Banner
   hosts: splunk
