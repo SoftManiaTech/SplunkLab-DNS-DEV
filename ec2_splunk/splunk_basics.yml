@@ -165,7 +165,7 @@
   become_user: splunk
 
   vars:
-    heavy_forwarder_ip: "{{ hostvars['HF']['private_ip'] }}"  # fetch HF IP
+    heavy_forwarder_ip: "{{ hostvars[groups['heavy_forwarder'][0]]['private_ip'] }}"  # fetch HF IP
 
   tasks:
 
