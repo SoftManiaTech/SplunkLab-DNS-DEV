@@ -102,7 +102,7 @@ data "aws_ami" "rhel9" {
 }
 
 # ✅ Create 3 EC2 Instances: SH, IDX, HF
-resource "aws_instance" "Splunk_sh_idx_hf" {
+resource "aws_instance" "Splunk_sh_idx_hf_uf" {
   count         = 4
   ami           = data.aws_ami.rhel9.id
   instance_type = var.instance_type
