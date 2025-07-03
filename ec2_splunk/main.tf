@@ -129,7 +129,7 @@ resource "aws_instance" "Splunk_sh_idx_hf" {
 }
 
 # ✅ Create EC2 Instance: UF
-resource "aws_instance" "uf" {
+resource "aws_instance" "Splunk_uf" {
   ami                    = data.aws_ami.rhel9.id
   instance_type          = var.instance_type
   key_name               = aws_key_pair.generated_key_pair.key_name
@@ -152,6 +152,30 @@ resource "aws_instance" "uf" {
   }
 }
 
+# ✅ Generate Ansible Inventory File
+resource "local_file" "inventory" {
+  content = <<EOT
+[search_head]
+${aws_instance.Splunk_sh_idx_hf[0].tags.Name} ansible_host=${aws_instance.Splunk_sh_idx_hf[0].public_ip} ansible_user=ec2-user private_ip=${aws_instance.Splunk_sh_idx_hf[0].private_ip}
+
+[indexer]
+${aws_instance.Splunk_sh_idx_hf[1].tags.Name} ansible_host=${aws_instance.Splunk_sh_idx_hf[1].public_ip} ansible_user=ec2-user private_ip=${aws_instance.Splunk_sh_idx_hf[1].private_ip}
+
+[heavy_forwarder]
+${aws_instance.Splunk_sh_idx_hf[2].tags.Name} ansible_host=${aws_instance.Splunk_sh_idx_hf[2].public_ip} ansible_user=ec2-user private_ip=${aws_instance.Splunk_sh_idx_hf[2].private_ip}
+
+[universal_forwarder]
+${aws_instance.Splunk_uf.tags.Name} ansible_host=${aws_instance.Splunk_uf.public_ip} ansible_user=ec2-user private_ip=${aws_instance.Splunk_uf.private_ip}
+
+[splunk:children]
+search_head
+indexer
+heavy_forwarder
+EOT
+
+  filename = "${path.module}/inventory.ini"
+}
+
 # ✅ Output Public IPs of SH, IDX, HF
 output "instance_public_ips" {
   value = aws_instance.Splunk_sh_idx_hf[*].public_ip
@@ -159,7 +183,7 @@ output "instance_public_ips" {
 
 # ✅ Output Public IP of UF
 output "uf_instance_public_ip" {
-  value = aws_instance.uf.public_ip
+  value = aws_instance.Splunk_uf.public_ip
 }
 
 # ✅ Output Key Name

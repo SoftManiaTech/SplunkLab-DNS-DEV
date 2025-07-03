@@ -8,7 +8,26 @@ id -u splunk &>/dev/null || useradd splunk
 mkdir -p /opt/splunk
 chown -R splunk:splunk /opt/splunk
 
-# Switch to Splunk user and execute setup commands
+# Disable Transparent Huge Pages (THP) - Create systemd service
+cat << 'EOF' > /etc/systemd/system/disable-thp.service
+[Unit]
+Description=Disable Transparent Huge Pages and defrag
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'echo never > /sys/kernel/mm/transparent_hugepage/enabled; echo never > /sys/kernel/mm/transparent_hugepage/defrag'
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload systemd and enable THP service
+systemctl daemon-reexec
+systemctl daemon-reload
+systemctl enable disable-thp
+
+# Setup Splunk as splunk user
 su - splunk <<'EOF'
 # Navigate to home directory
 cd /home/splunk
@@ -17,15 +36,40 @@ cd /home/splunk
 wget -O splunk-9.4.1-linux-amd64.tgz "https://download.splunk.com/products/splunk/releases/9.4.1/linux/splunk-9.4.1-e3bdab203ac8-linux-amd64.tgz"
 tar -xvf splunk-9.4.1-linux-amd64.tgz -C /opt/
 
-# Navigate to Splunk bin directory and start Splunk
-/opt/splunk/bin/splunk start --accept-license --answer-yes --no-prompt --seed-passwd 'admin123'
+# Start Splunk (initial setup)
+ /opt/splunk/bin/splunk start --accept-license --answer-yes --no-prompt --seed-passwd 'admin123'
 EOF
 
-# Stop Splunk before enabling boot-start
+# Stop Splunk before systemd service setup
 /opt/splunk/bin/splunk stop
 
-# Enable Splunk to start at boot (run as root)
+# Create Splunk systemd service
+cat << 'EOF' > /etc/systemd/system/splunk.service
+[Unit]
+Description=Splunk Enterprise
+After=network.target
+
+[Service]
+Type=simple
+User=splunk
+Group=splunk
+ExecStart=/opt/splunk/bin/splunk start --no-prompt --accept-license
+ExecStop=/opt/splunk/bin/splunk stop
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload systemd and enable Splunk service
+systemctl daemon-reexec
+systemctl daemon-reload
+systemctl enable splunk
+
 /opt/splunk/bin/splunk enable boot-start -user splunk
 
-# Start Splunk again (so it's running now)
+# Start the Splunk service
 /opt/splunk/bin/splunk start
+
+echo "Splunk setup completed successfully. Transparent Huge Pages (THP) disabled and Splunk is running as a systemd service."
+echo "Reboot the system to fully apply THP settings."
